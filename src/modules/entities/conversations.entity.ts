@@ -14,7 +14,8 @@ export class ConversationEntity {
     user_id!: string;
 
     @Column({
-        type: 'text'
+        type: 'text',
+        length: 255,
     })
     title!: string;
 

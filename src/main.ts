@@ -11,6 +11,7 @@ async function bootstrap() {
     new ValidationPipe({
       whitelist: true, // Tự động loại bỏ các field thừa không được định nghĩa trong DTO
       transform: true, // Tự động chuyển đổi kiểu dữ liệu (ví dụ chuỗi số thành kiểu number)
+      forbidNonWhitelisted: true, // Từ chối các request có field thừa
     }),
   );
 
