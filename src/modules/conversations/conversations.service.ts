@@ -26,6 +26,8 @@ export class ConversationService {
     }
 
     async findOne(id: string, userId: string): Promise<ConversationEntity> {
+        console.log(id, userId);
+        
         const conversation = await this.conversationRepository.findOne({
             where: {id, user_id: userId},
             relations: {
@@ -36,7 +38,8 @@ export class ConversationService {
         if (!conversation) {
             throw new NotFoundException(`Khong tim thay cuoc tro chuyen nao voi id: ${id}`);
         }
-
+        console.log("conversation find one", conversation);
+        
         return conversation;
     }
 

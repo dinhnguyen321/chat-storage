@@ -1,11 +1,11 @@
-import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryColumn, Unique } from "typeorm";
+import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, Unique } from "typeorm";
 import type { DocumentEntity } from "./documents.entity.js";
 import type { ConversationEntity } from "./conversations.entity.js";
 
 @Entity('conversation_documents')
 @Unique(['conversationId', 'documentId'])
 export class ConversationDocument {
-  @PrimaryColumn('uuid')
+  @PrimaryGeneratedColumn('uuid')
   id!: string;
 
   @Column({ type: 'uuid', name: 'conversation_id' })

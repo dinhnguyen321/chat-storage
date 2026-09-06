@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Post, Put, Query } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Post, Put, Query } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import { CreateConversationDto } from "./dto/create-conversation.dto.js";
 import { ConversationService } from "./conversations.service.js";
@@ -15,17 +15,18 @@ export class ConversationsController {
         return this.conversationService.create(dto);
     }
 
-    @Get(':userId')
-    findAllByUserId(@Param('userId') userId: string): Promise<ConversationEntity[]> {
+    @Get()
+    findAllByUserId(@Query('userId') userId: string): Promise<ConversationEntity[]> {
         return this.conversationService.findAllByUserId(userId);
     }
 
     // cách 1: Sử dụng query parameter để truyền userId
     @Get(':id')
     findOne(
-        @Param('id', ParseUUIDPipe) id: string, 
+        @Param('id') id: string, 
         @Query('userId') userId: string
     ): Promise<ConversationEntity> {
+        console.log(id, userId);
         return this.conversationService.findOne(id, userId);
     }
     // cách 2: sử dụng với UseGuard và AuthGuard để lấy userId từ token, không cần truyền userId trong query parameter

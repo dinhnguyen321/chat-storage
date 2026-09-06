@@ -1,10 +1,10 @@
-import { Column, CreateDateColumn, Entity, OneToMany, PrimaryColumn, UpdateDateColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 import type { MessageEntity } from "./messages.entity.js";
 import type { ConversationDocument } from "./conversation_docs.entity.js";
 
 @Entity('conversations')
 export class ConversationEntity {
-    @PrimaryColumn('uuid')
+    @PrimaryGeneratedColumn('uuid')
     id!: string;
 
     @Column({
@@ -14,8 +14,7 @@ export class ConversationEntity {
     user_id!: string;
 
     @Column({
-        type: 'text',
-        length: 255,
+        type: 'text'
     })
     title!: string;
 

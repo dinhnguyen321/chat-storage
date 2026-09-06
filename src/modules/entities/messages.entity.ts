@@ -1,10 +1,10 @@
-import { Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, PrimaryColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 import type { ConversationEntity } from "./conversations.entity.js";
 import { MessageRole } from "../../common/chat.enum.js";
 
 @Entity('messages')
 export class MessageEntity {
-    @PrimaryColumn('uuid')
+    @PrimaryGeneratedColumn('uuid')
     id!: string;
 
     @Index()
