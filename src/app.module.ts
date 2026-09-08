@@ -7,6 +7,7 @@ import { ConfigModule } from '@nestjs/config';
 import databaseConfig from './config/database.config.js';
 
 import { ConversationsModule } from './modules/conversations/conversations.module.js';
+import { MessagesModule } from './modules/messages/messages.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -26,6 +27,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
     DatabaseModule,
     ConversationsModule,
+    MessagesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

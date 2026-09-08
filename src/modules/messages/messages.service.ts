@@ -1,0 +1,87 @@
+import { Repository } from 'typeorm';
+import { Injectable, NotFoundException } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { MessageEntity } from "../entities/messages.entity.js";
+import { createMessageDto } from './dto/create-message.dto.js';
+import { ConversationEntity } from '../entities/conversations.entity.js';
+
+@Injectable()
+export class MessageService {
+    constructor(
+        @InjectRepository(MessageEntity)
+        private readonly messageRepository: Repository<MessageEntity>,
+        @InjectRepository(ConversationEntity)
+        private readonly conversationRepository: Repository<ConversationEntity>
+    ) {}
+
+    async createMessage(conversationId: string, dto: createMessageDto) {
+        await this.conversationIdExist(conversationId)
+        
+        const message = this.messageRepository.create({
+            ...dto,
+            conversationId: conversationId
+        })
+        // Cập nhật updated_at của Conversation để nhảy lên đầu danh sách
+        await this.conversationRepository.update(conversationId, { updated_at: new Date() })
+        
+        return await this.messageRepository.save(message)
+    }
+
+    async findAllByConversation(conversationId: string): Promise<MessageEntity[]> {
+        await this.conversationIdExist(conversationId)
+
+        return await this.messageRepository.find({
+            where: {
+                conversationId: conversationId,
+            },
+            order: {
+                created_at: 'ASC'
+            },
+        })
+    }
+
+    async findOneMessage(conversationId: string, messageId: string): Promise<MessageEntity> {
+        await this.conversationIdExist(conversationId)
+        
+        const message = await this.messageRepository.findOne({
+            where: {
+                id: messageId,
+                conversationId: conversationId
+            },
+         })
+
+        if (!message) {
+        throw new NotFoundException(`Không tìm thấy tin nhắn với ID ${messageId} trong cuộc trò chuyện này`);
+        }
+
+        return message;
+    }
+
+    async remove(conversationId: string, messageId: string): Promise<{ message: string }> {
+        const message = await this.messageRepository.findOne({
+            where: {
+                id: messageId,
+                conversationId: conversationId
+            },
+        })
+        if (!message) {
+            throw new NotFoundException(`Không tìm thấy tin nhắn cần xóa với ID ${messageId} trong cuộc trò chuyện này`);
+        }
+        await this.messageRepository.remove(message)
+
+        return {
+            message: 'Xóa thành công'
+        }
+    }
+
+    async conversationIdExist(conversationId: string) {
+        const exists = await this.conversationRepository.exists({
+            where: {
+                id: conversationId
+            }
+        })
+        if (!exists) {
+            throw new NotFoundException(`Không tìm thấy cuộc trò chuyện với ID: ${conversationId}`);
+        }
+    }
+}
