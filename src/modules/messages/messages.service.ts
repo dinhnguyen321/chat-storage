@@ -2,7 +2,7 @@ import { Repository } from 'typeorm';
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { MessageEntity } from "../entities/messages.entity.js";
-import { createMessageDto } from './dto/create-message.dto.js';
+import { CreateMessageDto } from './dto/create-message.dto.js';
 import { ConversationEntity } from '../entities/conversations.entity.js';
 
 @Injectable()
@@ -14,7 +14,7 @@ export class MessageService {
         private readonly conversationRepository: Repository<ConversationEntity>
     ) {}
 
-    async createMessage(conversationId: string, dto: createMessageDto) {
+    async createMessage(conversationId: string, dto: CreateMessageDto) {
         await this.conversationIdExist(conversationId)
         
         const message = this.messageRepository.create({
@@ -58,15 +58,8 @@ export class MessageService {
     }
 
     async remove(conversationId: string, messageId: string): Promise<{ message: string }> {
-        const message = await this.messageRepository.findOne({
-            where: {
-                id: messageId,
-                conversationId: conversationId
-            },
-        })
-        if (!message) {
-            throw new NotFoundException(`Không tìm thấy tin nhắn cần xóa với ID ${messageId} trong cuộc trò chuyện này`);
-        }
+        const message = await this.findOneMessage(conversationId, messageId)
+   
         await this.messageRepository.remove(message)
 
         return {

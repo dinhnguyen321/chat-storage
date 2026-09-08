@@ -2,7 +2,7 @@ import { IsEnum, IsNotEmpty, IsString } from "class-validator";
 import { MessageRole } from "../../../common/chat.enum.js";
 import { ApiProperty } from "@nestjs/swagger";
 
-export class createMessageDto {
+export class CreateMessageDto {
     @IsString()
     @ApiProperty({
         example: 'Cach nao de co muc luong 1000$ nganh IT'

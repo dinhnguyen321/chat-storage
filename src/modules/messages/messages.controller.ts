@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Post, Query } from
 import { ApiTags } from "@nestjs/swagger";
 import { MessageService } from "./messages.service.js";
 import { MessageEntity } from "../entities/messages.entity.js";
-import { createMessageDto } from "./dto/create-message.dto.js";
+import { CreateMessageDto } from "./dto/create-message.dto.js";
 
 @ApiTags('messages')
 @Controller('messages')
@@ -10,7 +10,7 @@ export class MessagesController {
     constructor (private readonly messageService: MessageService) {}
 
     @Post()
-    create(@Query('conversationId') conversationId: string, @Body() dto: createMessageDto): Promise<MessageEntity> {
+    create(@Query('conversationId') conversationId: string, @Body() dto: CreateMessageDto): Promise<MessageEntity> {
         return this.messageService.createMessage(conversationId, dto);
     }
 
