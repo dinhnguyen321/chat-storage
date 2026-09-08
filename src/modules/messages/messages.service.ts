@@ -4,6 +4,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { MessageEntity } from "../entities/messages.entity.js";
 import { CreateMessageDto } from './dto/create-message.dto.js';
 import { ConversationEntity } from '../entities/conversations.entity.js';
+import { GetMessagesQueryDto } from './dto/get-messages-query.dto.js';
 
 @Injectable()
 export class MessageService {
@@ -27,17 +28,31 @@ export class MessageService {
         return await this.messageRepository.save(message)
     }
 
-    async findAllByConversation(conversationId: string): Promise<MessageEntity[]> {
+    async findAllByConversation(conversationId: string, query: GetMessagesQueryDto): Promise<{data: MessageEntity[]; total: number; page: number; limit: number}> {
         await this.conversationIdExist(conversationId)
 
-        return await this.messageRepository.find({
+        const { page = 1, limit = 10 } = query
+
+        const skip = (page - 1) * limit
+
+        // Dùng findAndCount để lấy luôn tổng số tin nhắn (phục vụ tính tổng số trang)
+        const [data, total] = await this.messageRepository.findAndCount({
             where: {
                 conversationId: conversationId,
             },
             order: {
-                created_at: 'ASC'
+                created_at: 'ASC',
             },
+            skip: skip,
+            take: limit
         })
+
+        return {
+            data,
+            page,
+            limit,
+            total,
+        };
     }
 
     async findOneMessage(conversationId: string, messageId: string): Promise<MessageEntity> {

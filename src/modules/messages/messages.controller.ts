@@ -3,6 +3,7 @@ import { ApiTags } from "@nestjs/swagger";
 import { MessageService } from "./messages.service.js";
 import { MessageEntity } from "../entities/messages.entity.js";
 import { CreateMessageDto } from "./dto/create-message.dto.js";
+import { GetMessagesQueryDto } from "./dto/get-messages-query.dto.js";
 
 @ApiTags('messages')
 @Controller('messages')
@@ -14,11 +15,12 @@ export class MessagesController {
         return this.messageService.createMessage(conversationId, dto);
     }
 
-    @Get()
+    @Get('conversations/:conversationId')
     findAllByConversation(
-        @Query('conversationId', ParseUUIDPipe) conversationId: string, 
-    ): Promise<MessageEntity[]> {
-        return this.messageService.findAllByConversation(conversationId);
+        @Param('conversationId', ParseUUIDPipe) conversationId: string,
+        @Query() query: GetMessagesQueryDto
+    ): Promise<{ data: MessageEntity[]; total: number; page: number; limit: number }> {
+        return this.messageService.findAllByConversation(conversationId, query);
     }
     
     @Get(':messageId')
