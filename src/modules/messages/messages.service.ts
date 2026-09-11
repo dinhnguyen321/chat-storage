@@ -27,14 +27,14 @@ export class MessageService {
         
         return await this.messageRepository.save(message)
     }
-
+    
     async findAllByConversation(conversationId: string, query: GetMessagesQueryDto): Promise<{data: MessageEntity[]; total: number; page: number; limit: number}> {
         await this.conversationIdExist(conversationId)
 
         const { page = 1, limit = 10 } = query
 
         const skip = (page - 1) * limit
-
+         
         // Dùng findAndCount để lấy luôn tổng số tin nhắn (phục vụ tính tổng số trang)
         const [data, total] = await this.messageRepository.findAndCount({
             where: {
