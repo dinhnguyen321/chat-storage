@@ -15,4 +15,9 @@ export class CreateMessageDto {
     })
     @IsEnum(MessageRole, { message: 'message role khong hop le' })
     role!: MessageRole
+
+    @IsString()
+    @ApiProperty({example: '123456', description: 'id cua nguoi dung'})
+    @IsNotEmpty({message: 'user id khong duoc de trong'})
+    user_id!: string
 }

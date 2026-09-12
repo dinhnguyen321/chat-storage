@@ -16,16 +16,38 @@ export class MessageService {
     ) {}
 
     async createMessage(conversationId: string, dto: CreateMessageDto) {
-        await this.conversationIdExist(conversationId)
+        const { user_id, ...messageData } = dto
+        let _targetConversationId = conversationId
         
+        if(conversationId === 'new') {
+            const generatedTitle = dto.content.length > 30
+            ? `${dto.content.substring(0,30)}...`
+            : dto.content
+
+            const newConversation = this.conversationRepository.create({
+                title: generatedTitle,
+                user_id: user_id
+            })
+
+            const savedConversation = await this.conversationRepository.save(newConversation)
+            _targetConversationId = savedConversation.id
+        } else {
+            await this.conversationIdExist(_targetConversationId)
+            
+            // Cập nhật updated_at của Conversation để nhảy lên đầu danh sách
+            await this.conversationRepository.update(_targetConversationId, {
+                updated_at: new Date()
+            })
+        }
         const message = this.messageRepository.create({
-            ...dto,
-            conversationId: conversationId
+            ...messageData,
+            conversationId: _targetConversationId
         })
-        // Cập nhật updated_at của Conversation để nhảy lên đầu danh sách
-        await this.conversationRepository.update(conversationId, { updated_at: new Date() })
-        
-        return await this.messageRepository.save(message)
+        const savedMessage = await this.messageRepository.save(message)
+        return {
+            ...savedMessage,
+            conversationId: _targetConversationId
+        }
     }
     
     async findAllByConversation(conversationId: string, query: GetMessagesQueryDto): Promise<{data: MessageEntity[]; total: number; page: number; limit: number}> {
