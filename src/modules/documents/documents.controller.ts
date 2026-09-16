@@ -13,7 +13,7 @@ import { UpdateDocumentDto } from "./dto/update-document.dto.js";
 export class DocumentsController {
     constructor(private readonly documentsService: DocumentsService) {}
 
-    @Post()
+    @Post('/upload/:conversationId')
     @ApiConsumes('multipart/form-data') // 1. Tells Swagger this route accepts form data
     @ApiBody({                          // 2. Defines the exact payload shape for Swagger
         schema: {
@@ -25,7 +25,8 @@ export class DocumentsController {
             },
         },
         },
-  })@UseInterceptors(
+    })
+    @UseInterceptors(
         FileInterceptor('file', {
             storage: diskStorage({
                 destination: join(process.cwd(), 'uploads'),
@@ -55,7 +56,7 @@ export class DocumentsController {
         }),
     )
     async uploadFile(
-        @Param('conversationId', ParseUUIDPipe) conversationId: string,
+        @Param('conversationId') conversationId: string,
         @UploadedFile() file: Express.Multer.File,
     ) {
         if (!file) {
@@ -65,7 +66,7 @@ export class DocumentsController {
     return await this.documentsService.createDocument(conversationId, file);
     }
 
-    @Get('conversation/:conversationId')
+    @Get('/conversation/:conversationId')
     async getDocumentsByConversation (
         @Param('conversationId', ParseUUIDPipe) conversationId: string,
         @Query() query: GetDocumentsQueryDto)
@@ -74,7 +75,7 @@ export class DocumentsController {
     }
 
     @Get(':documentId')
-    async getDocumentById( @Param('documentId', ParseUUIDPipe) documentId: string) {
+    async getDocumentById(@Param('documentId', ParseUUIDPipe) documentId: string) {
         return await this.documentsService.getDocumentById(documentId)
     }
 

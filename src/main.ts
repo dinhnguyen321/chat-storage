@@ -22,6 +22,14 @@ async function bootstrap() {
     }),
   );
 
+  // Enable CORS with secure configurations
+  app.enableCors({
+    origin: ['http://localhost:3005', 'http://localhost:8080'],
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE', 
+    allowedHeaders: 'Content-Type, Authorization',
+    credentials: true, // Allow cookies or authorization headers
+  })
+  
   // Cấu hình Swagger
   const config = new DocumentBuilder()
     .setTitle('Chat Storage')
