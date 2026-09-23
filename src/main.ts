@@ -40,9 +40,11 @@ async function bootstrap() {
         type: 'http',
         scheme: 'bearer',
         bearerFormat: 'JWT',
+        name: 'JWT',
         description: 'Nhập access token',
+        in: 'header'
       },
-      'access-token',
+      'JWT-auth',
     ).build();
     const document = SwaggerModule.createDocument(app, config); 
      
