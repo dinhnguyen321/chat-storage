@@ -1,5 +1,5 @@
 import { BadRequestException, Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query, UploadedFile, UseInterceptors } from "@nestjs/common";
-import { ApiBody, ApiConsumes, ApiTags } from "@nestjs/swagger";
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiTags } from "@nestjs/swagger";
 import { DocumentsService } from "./documents.service.js";
 
 import { FileInterceptor } from "@nestjs/platform-express";
@@ -7,13 +7,15 @@ import { diskStorage } from "multer";
 import { extname, join } from "path";
 import { GetDocumentsQueryDto } from "./dto/get-document-query.dto.js";
 import { UpdateDocumentDto } from "./dto/update-document.dto.js";
+import { UpdateDocumentStatusDto } from "./dto/update-document-status.dto.js";
 
 @ApiTags('Documents')
+// @ApiBearerAuth('JWT-auth')
 @Controller('document')
 export class DocumentsController {
     constructor(private readonly documentsService: DocumentsService) {}
 
-    @Post('/upload/:conversationId')
+    @Post('/upload/:userId')
     @ApiConsumes('multipart/form-data') // 1. Tells Swagger this route accepts form data
     @ApiBody({                          // 2. Defines the exact payload shape for Swagger
         schema: {
@@ -56,14 +58,14 @@ export class DocumentsController {
         }),
     )
     async uploadFile(
-        @Param('conversationId') conversationId: string,
+        @Param('userId') userId: string,
         @UploadedFile() file: Express.Multer.File,
     ) {
         if (!file) {
       throw new BadRequestException('Vui lòng chọn file để upload');
     }
 
-    return await this.documentsService.createDocument(conversationId, file);
+    return await this.documentsService.createDocument(userId, file);
     }
 
     @Get('/conversation/:conversationId')
@@ -72,6 +74,14 @@ export class DocumentsController {
         @Query() query: GetDocumentsQueryDto)
     {
         return await this.documentsService.getDocumentsByConversation(conversationId, query)
+    }
+
+    @Get('/userId/:userId')
+    async getDocumentsByUserId (
+        @Param('userId') userId: string,
+        @Query() query: GetDocumentsQueryDto)
+    {
+        return await this.documentsService.getDocumentsByUserId(userId, query)
     }
 
     @Get(':documentId')
@@ -86,6 +96,15 @@ export class DocumentsController {
     ) {
         return await this.documentsService.updateDocument(id, dto)
     }
+
+    @Patch('status/:id')
+    async updateStatus(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body() dto: UpdateDocumentStatusDto
+    ) {
+        return await this.documentsService.updateStatus(id, dto.status)
+    }
+
 
     @Delete(':documentId')
     async deleteDocs (@Param('documentId', ParseUUIDPipe) id: string) {

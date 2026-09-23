@@ -5,10 +5,14 @@ import { DocumentsController } from "./documents.controller.js";
 import { DocumentsService } from "./documents.service.js";
 import { ConversationEntity } from "../entities/conversations.entity.js";
 import { ConversationDocument } from "../entities/conversation_docs.entity.js";
-
+import { HttpModule } from "@nestjs/axios"
+import { FastApiService } from "../../fastapi/fastapi.service.js";
 @Module({
-    imports: [TypeOrmModule.forFeature([DocumentEntity, ConversationEntity, ConversationDocument])],
+    imports: [
+        TypeOrmModule.forFeature([DocumentEntity, ConversationEntity, ConversationDocument]),
+        HttpModule,
+    ],
     controllers: [DocumentsController],
-    providers: [DocumentsService],
+    providers: [DocumentsService, FastApiService],
 })
 export class DocumentsModule {}

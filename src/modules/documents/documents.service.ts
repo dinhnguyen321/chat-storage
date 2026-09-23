@@ -1,5 +1,5 @@
 import { Repository } from 'typeorm';
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { ConflictException, HttpException, HttpStatus, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { DocumentEntity } from "../entities/documents.entity.js";
 import { ConversationEntity } from '../entities/conversations.entity.js';
@@ -9,28 +9,37 @@ import { ConversationDocument } from '../entities/conversation_docs.entity.js';
 import { GetDocumentsQueryDto } from './dto/get-document-query.dto.js';
 import { UpdateDocumentDto } from './dto/update-document.dto.js';
 import { unlink } from 'fs/promises';
+import axios from 'axios';
+import { HttpService } from '@nestjs/axios';
+
+import * as fs from 'fs';
+import FormData from 'form-data';
+import { FastApiService } from '../../fastapi/fastapi.service.js';
 
 @Injectable()
 export class DocumentsService {
+    private readonly logger = new Logger(DocumentsService.name)
 constructor(
     @InjectRepository(DocumentEntity)
     private readonly documentRepository: Repository<DocumentEntity>,
     @InjectRepository(ConversationEntity)
     private readonly conversationRepository: Repository<ConversationEntity>,
     @InjectRepository(ConversationDocument)
-    private readonly conversationDocumentRepository: Repository<ConversationDocument>    
+    private readonly conversationDocumentRepository: Repository<ConversationDocument>,
+    private readonly httpService: HttpService,
+
+    private readonly fastApiService: FastApiService
 ) {}
 
-    async createDocument(conversationId: string, file: Express.Multer.File) {
-        const conversation = await this.conversationRepository.findOne({
-            where: {
-                id: conversationId
-            },
-        });
-        if (!conversation) {
-            throw new NotFoundException(`không tìm thấy cuộc trò chuyện với ID: ${conversationId}`)
-        }
-
+    async createDocument(userId: string, file: Express.Multer.File) {
+        // const checkUserExist = await this.conversationRepository.findOne({
+        //     where: {
+        //         user_id: userId
+        //     },
+        // });
+        // if (!checkUserExist) {
+        //     throw new NotFoundException(`không tìm thấy cuộc trò chuyện với ID user: ${userId}`)
+        // }
         // 2. Map mimetype/extension sang DocumentType Enum (PDF, DOCX, MD)
         const docType = mapDocumentType(file);
         
@@ -40,20 +49,86 @@ constructor(
             selector: file.filename,
             type: docType,
             path: `/uploads/${file.filename}`,
-            upload_by: 'system_user',
-            status: DocumentStatus.READY
+            upload_by: userId || 'system_user',
+            status: DocumentStatus.PENDING
         })
-
+        
         const savedDoc = await this.documentRepository.save(document)
+        
+       try {
+           // Gửi docs lên fastapi-rag
+           const fastApiResult = await this.triggerFastApiProcessing(savedDoc, file)
+            return fastApiResult;
+        } catch (error) {
+           // 5. ROLLBACK: Nếu FastAPI từ chối (409 Conflict, Lỗi parse...), xóa record vừa tạo để sạch DB
+            await this.documentRepository.delete(savedDoc.id);
+            // Xóa file bị từ chối ở thư mục "uploads" trong project
+            fs.unlinkSync(file.path)
+            // Trả lỗi ra ngoài cho FE nhận status code
+            throw error; 
+        }
+        
+        // // 4. Liên kết vào bảng trung gian ConversationDocument
+        // const conversationDocs = this.conversationDocumentRepository.create({
+        //     conversationId: conversationId,
+        //     documentId: savedDoc.id,
+        // })
+        // await this.conversationDocumentRepository.save(conversationDocs)
+    }
 
-        // 4. Liên kết vào bảng trung gian ConversationDocument
-        const conversationDocs = this.conversationDocumentRepository.create({
-            conversationId: conversationId,
-            documentId: savedDoc.id,
-        })
-        await this.conversationDocumentRepository.save(conversationDocs)
+    private async triggerFastApiProcessing(
+        savedDoc: DocumentEntity,
+        file: Express.Multer.File
+    ) {
+        const fastApiUrl = process.env.FASTAPI_URL || 'http://localhost:8000'
 
-        return savedDoc;
+        const formData = new FormData()
+        if (file.path) {
+            formData.append('file', fs.createReadStream(file.path), file.originalname);
+            } else {
+            formData.append('file', file.buffer, file.originalname);
+            }
+            
+        try {
+            const token = await this.fastApiService.getValidToken()
+            
+            const req = await axios.post(`${fastApiUrl}/documents`, formData, {
+                  headers: {
+                    ...formData.getHeaders(),
+                    "Authorization": `Bearer ${token}`,
+                }
+            })
+
+            await this.updateStatus(savedDoc.id, DocumentStatus.READY)
+            return {
+                message: 'Upload thành công',
+                nestedDoc: savedDoc,
+                fastApiDoc: req.data, 
+            };
+        } catch (error: unknown) {
+           // 1. Log chi tiết lỗi từ FastAPI trả về (Response body)
+            if (axios.isAxiosError(error) && error.response) {
+                console.error('Lỗi từ FastAPI Status:', error.response.status);
+                console.error('Lỗi chi tiết từ FastAPI:', error.response.data);
+
+                // Xử lý riêng trường hợp file bị trùng (409 Conflict)
+                if (error.response.status === 409) {
+                throw new ConflictException('File/Tài liệu này đã tồn tại trên hệ thống FastAPI!');
+                }
+
+                // Ném lỗi HTTP của NestJS để Client nhận đúng Status Code
+                throw new HttpException(
+                error.response.data?.detail || 'Lỗi xử lý tài liệu từ FastAPI',
+                error.response.status,
+                );
+        }
+        // Fallback nếu không phải lỗi Axios Response (vd: lỗi mạng, timeout, FastAPI down)
+        throw new HttpException(
+            'Không thể kết nối đến hệ thống FastAPI-RAG',
+            HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+    }
+        
     }
 
     async getDocumentsByConversation(conversationId: string, query: GetDocumentsQueryDto) {
@@ -75,14 +150,47 @@ constructor(
         const [items, total] = await queryBuilder
         .orderBy('document.created_at', 'DESC')
         .skip(skip)
+        .take(limit)
         .getManyAndCount();
 
         return {
             items,
             meta: {
                 total,
-                page,
-                limit,
+                page: Number(page),
+                limit: Number(page),
+                totalPages: Math.ceil(total / limit)
+            }
+        }
+    }
+
+    async getDocumentsByUserId(userId: string, query: GetDocumentsQueryDto) {
+        // await this.conversationIdExist(userId)
+
+        const { page = 1, limit = 10, type } = query
+
+        const skip = (page - 1) * limit  
+
+        const queryBuilder = this.documentRepository
+        .createQueryBuilder('document')
+        .where('document.upload_by = :userId', { userId })
+
+        if (type) {
+            queryBuilder.andWhere('document.type = :type', { type });
+        }
+
+        const [items, total] = await queryBuilder
+        .orderBy('document.created_at', 'DESC')
+        .skip(skip)
+        .take(limit)
+        .getManyAndCount();
+
+        return {
+            items,
+            meta: {
+                total,
+                page: Number(page),
+                limit: Number(limit),
                 totalPages: Math.ceil(total / limit)
             }
         }
@@ -117,6 +225,17 @@ constructor(
         const document = await this.getDocumentById(id)
         document.title = dto.title;
 
+        return await this.documentRepository.save(document)
+    }
+
+    async updateStatus(id:string, status: DocumentStatus): Promise<DocumentEntity> {
+        const document = await this.documentRepository.findOne({where: { id }})
+
+        if (!document) {
+            throw new NotFoundException(`Không tìm thấy tài liệu khớp với ID ${id}`)
+        }
+
+        document.status = status;
         return await this.documentRepository.save(document)
     }
 
