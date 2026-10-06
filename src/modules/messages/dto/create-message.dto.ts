@@ -1,6 +1,8 @@
-import { IsEnum, IsNotEmpty, IsString } from "class-validator";
-import { MessageRole } from "../../../common/chat.enum.js";
-import { ApiProperty } from "@nestjs/swagger";
+import { IsArray,
+    //  IsEnum, 
+    IsNotEmpty, IsOptional, IsString } from "class-validator";
+// import { MessageRole } from "../../../common/chat.enum.js";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
 export class CreateMessageDto {
     @IsString()
@@ -10,11 +12,14 @@ export class CreateMessageDto {
     @IsNotEmpty({ message: 'message content khong duoc de trong' })
     content!: string
 
-    @ApiProperty({
-    example: 'user'
+    @ApiPropertyOptional({
+        description: 'Danh sách ID tài liệu (để trống nếu chat thường không RAG)',
+        type: [String],
     })
-    @IsEnum(MessageRole, { message: 'message role khong hop le' })
-    role!: MessageRole
+    @IsOptional()
+    @IsArray()
+    // @IsUUID('4', { each: false, message: 'Mỗi ID tài liệu phải là UUID hợp lệ' })
+    selector_choices?: string[];
 
     @IsString()
     @ApiProperty({example: '123456', description: 'id cua nguoi dung'})

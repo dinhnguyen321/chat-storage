@@ -1,6 +1,6 @@
 export enum MessageRole {
   USER = 'user',
-  BOT = 'bot',
+  ASSISTANT = 'assistant',
 }
 
 export enum DocumentType {

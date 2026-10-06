@@ -1,22 +1,26 @@
 import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Post, Query } from "@nestjs/common";
-import { ApiTags } from "@nestjs/swagger";
+import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import { MessageService } from "./messages.service.js";
 import { MessageEntity } from "../entities/messages.entity.js";
 import { CreateMessageDto } from "./dto/create-message.dto.js";
 import { GetMessagesQueryDto } from "./dto/get-messages-query.dto.js";
+import { CreateFirstMessageDto } from "./dto/create-first-message.dto.js";
 
 @ApiTags('messages')
+// @ApiBearerAuth('JWT-auth')
 @Controller('messages')
 export class MessagesController {
     constructor (private readonly messageService: MessageService) {}
 
     @Post()
-    create(@Query('conversationId') conversationId: string, @Body() dto: CreateMessageDto): Promise<MessageEntity> {
-        return this.messageService.createMessage(conversationId, dto);
+    async create(@Query('conversationId') conversationId: string, @Body() dto: CreateMessageDto)
+    // : Promise<MessageEntity>
+     {
+        return await this.messageService.createMessage(conversationId, dto);
     }
 
     @Get('conversations/:conversationId')
-    findAllByConversation(
+    async findAllByConversation(
         @Param('conversationId', ParseUUIDPipe) conversationId: string,
         @Query() query: GetMessagesQueryDto
     ): Promise<{ data: MessageEntity[]; total: number; page: number; limit: number }> {
@@ -39,4 +43,11 @@ export class MessagesController {
     ) {
         return this.messageService.remove(conversationId, messageId);
     }
+
+    @Post('conversations/first-message')
+    @ApiOperation({ summary: 'Gửi tin nhắn đầu tiên' })
+    createFirstMessage(@Body() dto: CreateFirstMessageDto) {
+        return this.messageService.createFirstMessage(dto)
+    }
+
 }

@@ -11,8 +11,8 @@ export class FastApiService {
 
     // Cấu hình ID & Secret của FastAPI
     private readonly FASTAPI_URL = process.env.FASTAPI_URL || 'http://localhost:8000';
-    private readonly CLIENT_ID = process.env.FASTAPI_CLIENT_ID || 'rag_BfuD-God-NnVdUZ8SkWwn8z6';
-    private readonly CLIENT_SECRET = process.env.FASTAPI_CLIENT_SECRET || 'zOfHa3D4thZYTCymjj6zsQlcU8zPlF0Stk-gNy5huxk';
+    private readonly CLIENT_ID = process.env.FASTAPI_CLIENT_ID || 'rag_sOGBCneFylGQ1SJP12JGfZwG';
+    private readonly CLIENT_SECRET = process.env.FASTAPI_CLIENT_SECRET || 'W8MwP53zQSPNRE50B2R6P8EyIfnR8VUSETCAkvW6nAk-gNy5huxk';
 
     /**
      * Lấy Token hợp lệ (Tự động xin lại nếu Token cũ hết hạn)

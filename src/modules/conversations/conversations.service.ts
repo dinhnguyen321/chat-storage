@@ -26,7 +26,6 @@ export class ConversationService {
     }
 
     async findOne(id: string, userId: string): Promise<ConversationEntity> {
-        console.log(id, userId);
         
         const conversation = await this.conversationRepository.findOne({
             where: {id, user_id: userId},
@@ -38,7 +37,6 @@ export class ConversationService {
         if (!conversation) {
             throw new NotFoundException(`Khong tim thay cuoc tro chuyen nao voi id: ${id}`);
         }
-        console.log("conversation find one", conversation);
         
         return conversation;
     }
@@ -49,7 +47,7 @@ export class ConversationService {
         return await this.conversationRepository.save(conversation);
     }
 
-    async remove(id: string, userId: string): Promise<{message: string}> {
+    async remove(id: string, userId: string) {
         const conversation = await this.findOne(id, userId);
         await this.conversationRepository.remove(conversation); // Cascade sẽ tự động xoá toàn bộ messages liên quan
         return { message: 'Xóa cuộc trò chuyện thành công' };
