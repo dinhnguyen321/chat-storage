@@ -4,7 +4,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { DocumentEntity } from "../entities/documents.entity.js";
 import { ConversationEntity } from '../entities/conversations.entity.js';
 import { DocumentStatus, DocumentType } from '../../common/chat.enum.js';
-import { extname, join } from 'path';
+import { basename, extname, join } from 'path';
 import { ConversationDocument } from '../entities/conversation_docs.entity.js';
 import { GetDocumentsQueryDto } from './dto/get-document-query.dto.js';
 import { UpdateDocumentDto } from './dto/update-document.dto.js';
@@ -32,14 +32,14 @@ constructor(
 ) {}
 
     async createDocument(userId: string, file: Express.Multer.File) {
-        // const checkUserExist = await this.conversationRepository.findOne({
-        //     where: {
-        //         user_id: userId
-        //     },
-        // });
-        // if (!checkUserExist) {
-        //     throw new NotFoundException(`không tìm thấy cuộc trò chuyện với ID user: ${userId}`)
-        // }
+        const checkUserExist = await this.conversationRepository.findOne({
+            where: {
+                user_id: userId
+            },
+        });
+        if (!checkUserExist) {
+            throw new NotFoundException(`không tìm thấy cuộc trò chuyện với ID user: ${userId}`)
+        }
         // 2. Map mimetype/extension sang DocumentType Enum (PDF, DOCX, MD)
         const docType = mapDocumentType(file);
         
@@ -58,13 +58,14 @@ constructor(
        try {
            // Gửi docs lên fastapi-rag
            const fastApiResult = await this.triggerFastApiProcessing(savedDoc, file)
+           console.log("fastApiResult uploads file", fastApiResult);
+           
             return fastApiResult;
         } catch (error) {
            // 5. ROLLBACK: Nếu FastAPI từ chối (409 Conflict, Lỗi parse...), xóa record vừa tạo để sạch DB
             await this.documentRepository.delete(savedDoc.id);
             // Xóa file bị từ chối ở thư mục "uploads" trong project
-            fs.unlinkSync(file.path)
-            // Trả lỗi ra ngoài cho FE nhận status code
+            fs.unlinkSync(file.path);
             throw error; 
         }
         
@@ -99,7 +100,14 @@ constructor(
                 }
             })
 
-            await this.updateStatus(savedDoc.id, DocumentStatus.READY)
+            const fastApiDocId = req.data?.id;
+            await this.documentRepository.update(savedDoc.id, {
+                status: DocumentStatus.READY,
+                selector: fastApiDocId // id của tài liệu trên FastAPI-RAG
+            });
+
+            savedDoc.status = DocumentStatus.READY;
+            savedDoc.selector = fastApiDocId;
             return {
                 message: 'Upload thành công',
                 nestedDoc: savedDoc,
@@ -199,7 +207,7 @@ constructor(
     async getDocumentById(documentId: string) {
         const document = await this.documentRepository.findOne({
             where: {
-                id: documentId
+                id: documentId,
             },
         });
 
@@ -240,31 +248,40 @@ constructor(
     }
 
     async removeDoc(id: string) {
+        const fastApiUrl = process.env.FASTAPI_URL || 'http://localhost:8000'
+        const token = await this.fastApiService.getValidToken()
         const document = await this.getDocumentById(id)
-        // 1. Xóa bản ghi trong Postgres (CASCADE sẽ tự xóa bản ghi ở conversation_documents)
+        // Xóa bản ghi trong Postgres (CASCADE sẽ tự xóa bản ghi ở conversation_documents)
         await this.documentRepository.remove(document)
-        // 2. Dọn dẹp file vật lý trong thư mục /uploads
-        const filePath = join(process.cwd(), 'uploads', document.selector)
+        // Dọn dẹp file vật lý trong thư mục /uploads
+        const fileName = basename(document.path) // Trả về "1710000000-file.pdf"
+        const filePath = join(process.cwd(), 'uploads', fileName)
+        // Xóa bản ghi trên FastAPI-RAG
+        await axios.delete(`${fastApiUrl}/documents/${document.selector}`, {
+            headers: {
+                "Authorization": `Bearer ${token}`,
+            },
+        });
 
         try {
             await unlink(filePath)
-
         } catch (error) {
            console.warn(`Không thể xóa file vật lý tại ${filePath}:`, error);
         }
         return { message: `Đã xóa tài liệu thành công`}
         }
     }
-function mapDocumentType(file: Express.Multer.File): DocumentType {
-  const ext = extname(file.originalname).toLowerCase();
 
-  switch (ext) {
-    case '.pdf':
-      return DocumentType.PDF;
-    case '.docx':
-      return DocumentType.DOCX;
-    case '.md':
-    default:
-      return DocumentType.MD;
-  }
-}
+    function mapDocumentType(file: Express.Multer.File): DocumentType {
+    const ext = extname(file.originalname).toLowerCase();
+
+    switch (ext) {
+        case '.pdf':
+        return DocumentType.PDF;
+        case '.docx':
+        return DocumentType.DOCX;
+        case '.md':
+        default:
+        return DocumentType.MD;
+    }
+    }

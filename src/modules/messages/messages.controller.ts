@@ -12,8 +12,8 @@ import { CreateFirstMessageDto } from "./dto/create-first-message.dto.js";
 export class MessagesController {
     constructor (private readonly messageService: MessageService) {}
 
-    @Post()
-    async create(@Query('conversationId') conversationId: string, @Body() dto: CreateMessageDto)
+    @Post('conversations/:conversationId')
+    async create(@Param('conversationId', ParseUUIDPipe) conversationId: string, @Body() dto: CreateMessageDto)
     // : Promise<MessageEntity>
      {
         return await this.messageService.createMessage(conversationId, dto);
@@ -44,7 +44,7 @@ export class MessagesController {
         return this.messageService.remove(conversationId, messageId);
     }
 
-    @Post('conversations/first-message')
+    @Post('conversation/first-message')
     @ApiOperation({ summary: 'Gửi tin nhắn đầu tiên' })
     createFirstMessage(@Body() dto: CreateFirstMessageDto) {
         return this.messageService.createFirstMessage(dto)

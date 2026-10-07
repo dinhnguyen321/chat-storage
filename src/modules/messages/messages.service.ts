@@ -28,27 +28,38 @@ export class MessageService {
             //  ...messageData
              } = dto
         let _targetConversationId = conversationId
-        
-        if(conversationId === 'new') {
-            const generatedTitle = dto.content.length > 30
-            ? `${dto.content.substring(0,30)}...`
-            : dto.content
+        const conversation = await this.conversationRepository.findOne({
+            where: {
+                id: conversationId,
+            },
+            select: {
+                id: true,
+                fastApi_conversation_id: true,
+            },
+        })
+        // if(conversationId === 'new') {
+        //     const generatedTitle = dto.content.length > 30
+        //     ? `${dto.content.substring(0,30)}...`
+        //     : dto.content
 
-            const newConversation = this.conversationRepository.create({
-                title: generatedTitle,
-                user_id: user_id
-            })
+        //     const newConversation = this.conversationRepository.create({
+        //         title: generatedTitle,
+        //         user_id: user_id
+        //     })
 
-            const savedConversation = await this.conversationRepository.save(newConversation)
-            _targetConversationId = savedConversation.id
-        } else {
-            await this.conversationIdExist(_targetConversationId)
+        //     const savedConversation = await this.conversationRepository.save(newConversation)
+        //     _targetConversationId = savedConversation.id
+        // } else {
+          const conversationExists: any = await this.conversationIdExist(_targetConversationId)
+          if ( !conversationExists) {
+            throw new NotFoundException(`Không tìm thấy cuộc trò chuyện với ID: ${_targetConversationId}`);
+          }
             
             // Cập nhật updated_at của Conversation để nhảy lên đầu danh sách
             await this.conversationRepository.update(_targetConversationId, {
                 updated_at: new Date()
             })
-        }
+        // }
 
         // Lưu các mối quan hệ giữa cuộc trò chuyện và các tài liệu được chọn (nếu có)
         if (dto.selector_choices && dto.selector_choices.length > 0) {
@@ -74,7 +85,7 @@ export class MessageService {
                 answer_mode: "answer",
                 selector_choices: selector_choices
             }
-        const aiResponse = await axios.post(`http://localhost:8000/conversations/messages`, data, {
+        const aiResponse = await axios.post(`http://localhost:8000/conversations/${conversation?.fastApi_conversation_id}/messages`, data, {
                 headers: {
                     "Content-Type": "application/json",
                     "Authorization": `Bearer ${token}`,
@@ -83,7 +94,10 @@ export class MessageService {
                 content: aiResponse.data.answer ? aiResponse.data.answer : "Xin lỗi, tôi không thể trả lời câu hỏi này.",
                 role: MessageRole.ASSISTANT,
                 conversationId: _targetConversationId,
+                // fastApi_conversation_id: aiResponse.data.conversation_id
             })
+            console.log("Create message", assistantMsg);
+            
         return {
             conversation: _targetConversationId,
             assistantMsg: assistantMsg,
@@ -151,9 +165,8 @@ export class MessageService {
                 id: conversationId
             }
         })
-        if (!exists) {
-            throw new NotFoundException(`Không tìm thấy cuộc trò chuyện với ID: ${conversationId}`);
-        }
+        
+        return exists;
     }
 
     async createFirstMessage(dto: CreateFirstMessageDto) {
@@ -197,11 +210,17 @@ export class MessageService {
                     "Content-Type": "application/json",
                     "Authorization": `Bearer ${token}`,
                 }})
+
+            const fastApiConvId = aiResponse.data.conversation_id
+            saveConv.fastApi_conversation_id = fastApiConvId;
+            await this.conversationRepository.save(saveConv)
+            
             const assistantMsg = await this.messageRepository.save({
                 content: aiResponse.data.answer ? aiResponse.data.answer : "Xin lỗi, tôi không thể trả lời câu hỏi này.",
                 role: MessageRole.ASSISTANT,
                 conversationId: saveConv.id,
             })
+    
             return {
                 conversation: saveConv,
                 messages: [userMsg, assistantMsg]

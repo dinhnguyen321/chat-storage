@@ -63,9 +63,9 @@ export class DocumentsController {
     ) {
         if (!file) {
       throw new BadRequestException('Vui lòng chọn file để upload');
-    }
+        }
 
-    return await this.documentsService.createDocument(userId, file);
+        return await this.documentsService.createDocument(userId, file);
     }
 
     @Get('/conversation/:conversationId')
@@ -107,7 +107,9 @@ export class DocumentsController {
 
 
     @Delete(':documentId')
-    async deleteDocs (@Param('documentId', ParseUUIDPipe) id: string) {
+    async deleteDocs (
+        @Param('documentId', ParseUUIDPipe,) id: string,
+    ) {
         return await this.documentsService.removeDoc(id)
     }    
 }

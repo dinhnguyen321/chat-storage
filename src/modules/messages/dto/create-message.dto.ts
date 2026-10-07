@@ -25,4 +25,5 @@ export class CreateMessageDto {
     @ApiProperty({example: '123456', description: 'id cua nguoi dung'})
     @IsNotEmpty({message: 'user id khong duoc de trong'})
     user_id!: string
+
 }

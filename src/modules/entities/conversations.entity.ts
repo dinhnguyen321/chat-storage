@@ -7,6 +7,9 @@ export class ConversationEntity {
     @PrimaryGeneratedColumn('uuid')
     id!: string;
 
+    @Column({ type: 'varchar', nullable: true })
+    fastApi_conversation_id: string; // ID từ FastAPI trả về
+
     @Column({
         type: 'varchar',
         length: 255,

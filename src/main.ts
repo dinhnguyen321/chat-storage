@@ -4,11 +4,17 @@ import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
 import { NestExpressApplication } from '@nestjs/platform-express'
 import { join } from 'path';
+
+// httpOnly cookie
+import cookieParser from 'cookie-parser';
+
 async function bootstrap() {
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     instrument: ObserveInstrument,
   });
+
+  app.use(cookieParser()); // Sử dụng cookie-parser để parse cookie từ request
 
   // Serve thư mục uploads công khai
   app.useStaticAssets(join(process.cwd(), 'upload'), {
