@@ -16,6 +16,19 @@ import * as fs from 'fs';
 import FormData from 'form-data';
 import { FastApiService } from '../../fastapi/fastapi.service.js';
 
+// function mapDocumentType(file: Express.Multer.File): DocumentType {
+//     const ext = extname(file.originalname).toLowerCase();
+
+//     switch (ext) {
+//         case '.pdf':
+//             return DocumentType.PDF;
+//         case '.docx':
+//             return DocumentType.DOCX;
+//         case '.md':
+//         default:
+//             return DocumentType.MD;
+//     }
+// }
 @Injectable()
 export class DocumentsService {
     private readonly logger = new Logger(DocumentsService.name)
@@ -25,11 +38,24 @@ constructor(
     @InjectRepository(ConversationEntity)
     private readonly conversationRepository: Repository<ConversationEntity>,
     @InjectRepository(ConversationDocument)
-    private readonly conversationDocumentRepository: Repository<ConversationDocument>,
+    // private readonly conversationDocumentRepository: Repository<ConversationDocument>,
     private readonly httpService: HttpService,
 
-    private readonly fastApiService: FastApiService
+    private readonly fastApiService: FastApiService,
 ) {}
+    private static mapDocumentType(file: Express.Multer.File): DocumentType {
+        const ext = extname(file.originalname).toLowerCase();
+
+        switch (ext) {
+            case '.pdf':
+                return DocumentType.PDF;
+            case '.docx':
+                return DocumentType.DOCX;
+            case '.md':
+            default:
+                return DocumentType.MD;
+        }
+    }
 
     async createDocument(userId: string, file: Express.Multer.File) {
         const checkUserExist = await this.conversationRepository.findOne({
@@ -41,7 +67,7 @@ constructor(
             throw new NotFoundException(`không tìm thấy cuộc trò chuyện với ID user: ${userId}`)
         }
         // 2. Map mimetype/extension sang DocumentType Enum (PDF, DOCX, MD)
-        const docType = mapDocumentType(file);
+        const docType = DocumentsService.mapDocumentType(file);
         
         // 3. Tao record Document
         const document = this.documentRepository.create({
@@ -62,21 +88,19 @@ constructor(
            
             return fastApiResult;
         } catch (error) {
-           // 5. ROLLBACK: Nếu FastAPI từ chối (409 Conflict, Lỗi parse...), xóa record vừa tạo để sạch DB
+            // ROLLBACK: Nếu FastAPI từ chối (409 Conflict, Lỗi parse...), xóa record vừa tạo để sạch DB
             await this.documentRepository.delete(savedDoc.id);
-            // Xóa file bị từ chối ở thư mục "uploads" trong project
-            fs.unlinkSync(file.path);
+
+            // Xóa file bất đồng bộ (async), nhưng không cần chờ (file bị từ chối ở thư mục "uploads")
+            if (file.path) {
+                unlink(file.path).catch((err) => { // unlink là(Non-blocking)
+                    this.logger.warn(`Không thể xóa file ${file.path}`, err)
+                })
+            }
             throw error; 
         }
-        
-        // // 4. Liên kết vào bảng trung gian ConversationDocument
-        // const conversationDocs = this.conversationDocumentRepository.create({
-        //     conversationId: conversationId,
-        //     documentId: savedDoc.id,
-        // })
-        // await this.conversationDocumentRepository.save(conversationDocs)
     }
-
+        
     private async triggerFastApiProcessing(
         savedDoc: DocumentEntity,
         file: Express.Multer.File
@@ -166,7 +190,7 @@ constructor(
             meta: {
                 total,
                 page: Number(page),
-                limit: Number(page),
+                limit: Number(limit),
                 totalPages: Math.ceil(total / limit)
             }
         }
@@ -270,18 +294,5 @@ constructor(
         }
         return { message: `Đã xóa tài liệu thành công`}
         }
-    }
+}
 
-    function mapDocumentType(file: Express.Multer.File): DocumentType {
-    const ext = extname(file.originalname).toLowerCase();
-
-    switch (ext) {
-        case '.pdf':
-        return DocumentType.PDF;
-        case '.docx':
-        return DocumentType.DOCX;
-        case '.md':
-        default:
-        return DocumentType.MD;
-    }
-    }

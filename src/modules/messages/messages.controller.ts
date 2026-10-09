@@ -13,7 +13,9 @@ export class MessagesController {
     constructor (private readonly messageService: MessageService) {}
 
     @Post('conversations/:conversationId')
-    async create(@Param('conversationId', ParseUUIDPipe) conversationId: string, @Body() dto: CreateMessageDto)
+    async create(
+        @Param('conversationId') conversationId: string,
+        @Body() dto: CreateMessageDto)
     // : Promise<MessageEntity>
      {
         return await this.messageService.createMessage(conversationId, dto);
