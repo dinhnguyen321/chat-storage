@@ -21,8 +21,8 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
       load: [databaseConfig],
     }),
     ObserveModule.forRoot({
-      appKey: '!LUu4IBrHOv0!kmU',
-      appSecret: 'H^vbUCO%J$o7r&vv8&TfHzuCllO6fgJ3$Joc8By$^SLBP',
+      appKey: process.env.OBSERVE_APP_KEY || '',
+      appSecret: process.env.OBSERVE_APP_SECRET || '',
       serviceId: 'chat-storage',
     }),
 

@@ -20,12 +20,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  // Hàm này giải mã token thành công và trả về thông tin user
+  // Giải mã token và trả về thông tin user
   async validate(payload: any) {
     if (!payload) {
       throw new UnauthorizedException('Token không hợp lệ');
     }
-    // Payload chứa thông tin do auth-service mã hóa (thường là sub hoặc userId)
+    // Payload chứa thông tin do auth-service mã hóa
     return { userId: payload.sub || payload.userId };
   }
 }

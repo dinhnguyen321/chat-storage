@@ -17,9 +17,10 @@ async function bootstrap() {
   app.use(cookieParser()); // Sử dụng cookie-parser để parse cookie từ request
 
   // Serve thư mục uploads công khai
-  app.useStaticAssets(join(process.cwd(), 'upload'), {
+  app.useStaticAssets(join(process.cwd(), 'uploads'), {
     prefix: '/uploads',
-  })
+  });
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true, // Tự động loại bỏ các field thừa không được định nghĩa trong DTO
