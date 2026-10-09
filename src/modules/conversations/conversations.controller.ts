@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, Query } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Post, Put, Query } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import { CreateConversationDto } from "./dto/create-conversation.dto.js";
 import { ConversationService } from "./conversations.service.js";
@@ -23,7 +23,7 @@ export class ConversationsController {
     // cách 1: Sử dụng query parameter để truyền userId
     @Get(':id')
     findOne(
-        @Param('id') id: string, 
+        @Param('id', ParseUUIDPipe) id: string, 
         @Query('userId') userId: string
     ): Promise<ConversationEntity> {
         console.log(id, userId);
@@ -41,18 +41,18 @@ export class ConversationsController {
 
     @Put(':id')
     update(
-        @Param('id') id:string, 
+        @Param('id', ParseUUIDPipe) id:string, 
         @Query('userId') userId: string,
         @Body() dto: UpdateConversationDto
     ) {
         return this.conversationService.update(id, userId, dto);
     }
 
-    @Delete(':id')
+    @Delete(':conversationId')
     remove(
-        @Param('id') id:string, 
+        @Param('conversationId', ParseUUIDPipe) conversationId:string, 
         @Query('userId') userId: string,
     ) {
-        return this.conversationService.remove(id, userId);
+        return this.conversationService.remove(conversationId, userId);
     }
 }
