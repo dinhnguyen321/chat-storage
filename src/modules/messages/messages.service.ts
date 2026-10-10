@@ -1,8 +1,8 @@
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { HttpException, HttpStatus, Injectable, InternalServerErrorException, Logger, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { MessageEntity } from "../entities/messages.entity.js";
-import { CreateMessageDto } from './dto/create-message.dto.js';
+import { CreateMessageDto, SelectorChoiceDto } from './dto/create-message.dto.js';
 import { ConversationEntity } from '../entities/conversations.entity.js';
 import { GetMessagesQueryDto } from './dto/get-messages-query.dto.js';
 import { CreateFirstMessageDto } from './dto/create-first-message.dto.js';
@@ -14,6 +14,7 @@ import { MessageRole } from '../../common/chat.enum.js';
 import { DocumentsService } from '../documents/documents.service.js';
 
 import { DataSource } from 'typeorm';
+import { DocumentEntity } from '../entities/documents.entity.js';
 @Injectable()
 export class MessageService {
         private readonly logger = new Logger(DocumentsService.name)
@@ -25,6 +26,8 @@ export class MessageService {
         private readonly conversationRepository: Repository<ConversationEntity>,
         @InjectRepository(ConversationDocument)
         private readonly conversationDocumentRepository: Repository<ConversationDocument>,
+        @InjectRepository(DocumentEntity)
+        private readonly documentRepository: Repository<DocumentEntity>,
         private readonly fastApiService: FastApiService
     ) {}
 
@@ -39,7 +42,7 @@ export class MessageService {
         let conversation: ConversationEntity | null
         let isNewConversation = false;  
         try {
-            
+        
         if(conversationId === 'new') { // Nếu nhận giá trị conversation id là "new" thì tạo mới conv
             
             const generatedTitle = dto.content.length > 30
@@ -88,12 +91,19 @@ export class MessageService {
 
         // Liên kết docs vào bảng trung gian ConversationDocument (nếu có)
         if (dto.selector_choices && dto.selector_choices.length > 0) {
-                const convDocs = dto.selector_choices.map(docId => 
-                    queryRunner.manager.create(ConversationDocument, {
+                const convDocs = dto.selector_choices.map((item: SelectorChoiceDto | string) => {
+
+                    const docId = typeof item === 'string' ? item : item?.document_id
+                    if(!docId || typeof docId !== 'string') {
+                        return null
+                    }
+                    return queryRunner.manager.create(ConversationDocument, {
                         conversationId: _targetConversationId,
                         documentId: docId,
-                    }),
-                );
+                    });
+                });
+                console.log("convDocs", convDocs);
+                
                 await queryRunner.manager.save(convDocs);
                 this.logger.log(`Lưu ${dto.selector_choices.length} documents`);
             }
@@ -182,15 +192,44 @@ export class MessageService {
         fastApiConversationId: string | null,
         isNewConversation: boolean,
         content: string,
-        selector_choices: string[] | undefined,
+        selector_choices: SelectorChoiceDto[] | string[] | undefined,
     ) {
         
         const fastApiUrl = process.env.FASTAPI_URL || 'http://localhost:8000'
         const token = await this.fastApiService.getValidToken()
+        // Khởi tạo mảng chứa các selector_choices đã được định dạng chuẩn gửi FastAPI
+        let formattedSelectorChoices: any[] = [];
+        if (selector_choices && selector_choices?.length > 0 ) {
+           
+            const documentIds = selector_choices
+                .map((item: SelectorChoiceDto | string) => 
+                    typeof item === 'string' ? item : item?.document_id    
+                )
+                .filter((id): id is string => Boolean(id) && typeof id === 'string');
+            
+            if (documentIds.length > 0) {
+                // 2. Query DB lấy tất cả Document trong 1 câu SQL duy nhất (Thay vì loop findOne)
+                const documents = await this.documentRepository.find({
+                    where: {
+                        id: In(documentIds)
+                    }
+                })
+
+                // 3. Map các thông tin document/selector cần thiết cho FastAPI
+                // Giả sử mỗi document chứa thông tin selector hoặc cấu trúc FastAPI yêu cầu
+                formattedSelectorChoices = documents.map((doc) => ({
+                    document_id: doc.selector
+                }));
+            }
+        
+        };
+        
+        console.log("formattedSelectorChoices", formattedSelectorChoices);
+        
         const requestData = {
                 chat_input: content,
                 answer_mode: "answer",
-                selector_choices: selector_choices
+                selector_choices: formattedSelectorChoices
         }
         try {
         let endpoint: string;
@@ -342,7 +381,8 @@ export class MessageService {
             })
 
             const saveConv = await this.conversationRepository.save(conversation)
-
+            console.log("selector_choices", selector_choices);
+            
             // Liên kết docs vào bảng trung gian ConversationDocument (nếu có)
             if (dto.selector_choices && dto.selector_choices.length > 0) {
                 const convDocs = dto.selector_choices.map(docId => 

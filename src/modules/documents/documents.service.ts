@@ -275,7 +275,7 @@ constructor(
         const fastApiUrl = process.env.FASTAPI_URL || 'http://localhost:8000'
         const token = await this.fastApiService.getValidToken()
         const document = await this.getDocumentById(id)
-        // Xóa bản ghi trong Postgres (CASCADE sẽ tự xóa bản ghi ở conversation_documents)
+        // Xóa bản ghi trong Postgres
         await this.documentRepository.remove(document)
         // Dọn dẹp file vật lý trong thư mục /uploads
         const fileName = basename(document.path) // Trả về "1710000000-file.pdf"

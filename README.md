@@ -31,6 +31,48 @@
 $ npm install
 ```
 
+## Hướng dẫn Sử dụng Migration (Database Migrations)
+Dự án sử dụng TypeORM Migration để quản lý và đồng bộ hóa các thay đổi cấu trúc bảng, enum types trong PostgreSQL một cách an toàn.
+
+### Cấu hình Lệnh CLI (package.json)
+Đảm bảo file package.json đã cấu hình sẵn các scripts sau:
+
+JSON
+```
+"scripts": {
+  "typeorm": "typeorm-ts-node-commonjs -d src/config/data-source.ts",
+  "migration:generate": "npm run typeorm -- migration:generate",
+  "migration:create": "typeorm-ts-node-commonjs migration:create",
+  "migration:run": "npm run typeorm -- migration:run",
+  "migration:revert": "npm run typeorm -- migration:revert"
+}
+```
+🟢 Các thao tác Migration cơ bản
+1. Tự động sinh Migration từ Entity (Generate)
+Khi chỉnh sửa file Entity (ví dụ: thêm cột mới trong Message entity), hãy chạy lệnh sau để TypeORM tự so sánh và sinh file migration:
+```
+Bash
+npm run migration:generate -- src/database/migrations/UpdateMessageSchema
+```
+2. Tạo file Migration thủ công (Create)
+Dùng khi muốn viết SQL tùy chỉnh (ví dụ: tạo Custom Enum, chỉnh sửa dữ liệu cũ):
+```
+Bash
+npm run migration:create src/migrations/FixEnumPostgres
+```
+3. Áp dụng Migration vào CSDL (Run)
+Chạy tất cả các file migration chưa được thực thi lên PostgreSQL:
+```
+Bash
+npm run migration:run
+```
+4. Hoàn tác Migration gần nhất (Revert)
+Nếu migration vừa chạy gặp lỗi hoặc muốn hủy bỏ thay đổi:
+```
+Bash
+npm run migration:revert
+```
+
 ## Compile and run the project
 
 ```bash

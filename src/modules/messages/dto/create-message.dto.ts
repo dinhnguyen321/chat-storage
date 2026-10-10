@@ -3,7 +3,11 @@ import { IsArray,
     IsNotEmpty, IsOptional, IsString } from "class-validator";
 // import { MessageRole } from "../../../common/chat.enum.js";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-
+export class SelectorChoiceDto {
+  @IsString()
+  @IsNotEmpty()
+  document_id: string[]; // Hoặc documentId tùy theo format JSON FE gửi lên
+}
 export class CreateMessageDto {
     @IsString()
     @ApiProperty({
