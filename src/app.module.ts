@@ -9,6 +9,7 @@ import databaseConfig from './config/database.config.js';
 import { ConversationsModule } from './modules/conversations/conversations.module.js';
 import { MessagesModule } from './modules/messages/messages.module.js';
 import { DocumentsModule } from './modules/documents/documents.module.js';
+import { TelegramModule } from './modules/telegram/telegram.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -30,6 +31,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     ConversationsModule,
     MessagesModule,
     DocumentsModule,
+    TelegramModule,
   ],
   controllers: [AppController],
   providers: [AppService],

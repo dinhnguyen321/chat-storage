@@ -32,12 +32,14 @@ export class MessageService {
     ) {}
 
     async createMessage(conversationId: string, dto: CreateMessageDto) {
+        console.log("dto", dto);
         //  transaction config
         const queryRunner = this.dataSource.createQueryRunner();
         await queryRunner.connect();
         await queryRunner.startTransaction();
 
         const { user_id, content, selector_choices } = dto
+        
         let _targetConversationId = conversationId
         let conversation: ConversationEntity | null
         let isNewConversation = false;  
