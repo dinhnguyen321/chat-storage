@@ -8,6 +8,7 @@ import { extname, join } from "path";
 import { GetDocumentsQueryDto } from "./dto/get-document-query.dto.js";
 import { UpdateDocumentDto } from "./dto/update-document.dto.js";
 import { UpdateDocumentStatusDto } from "./dto/update-document-status.dto.js";
+import { Throttle } from "@nestjs/throttler";
 
 @ApiTags('Documents')
 // @ApiBearerAuth('JWT-auth')
@@ -15,6 +16,7 @@ import { UpdateDocumentStatusDto } from "./dto/update-document-status.dto.js";
 export class DocumentsController {
     constructor(private readonly documentsService: DocumentsService) {}
 
+    @Throttle({ default: { limit: 5, ttl: 60000 } }) // Giới hạn riêng Tối đa 5 câu hỏi trong 60 giây
     @Post('/upload/:userId')
     @ApiConsumes('multipart/form-data') // 1. Tells Swagger this route accepts form data
     @ApiBody({                          // 2. Defines the exact payload shape for Swagger
@@ -40,7 +42,7 @@ export class DocumentsController {
                 },
             }),
             limits: {
-                fieldSize: 10 * 1024 * 1024, // Giới hạn max 10MB
+                fileSize: 10 * 1024 * 1024, // Giới hạn max 10MB
             },
             fileFilter: (req, file, callback) => {
                 const allowedExtensions = ['.pdf', '.docx', '.md'];

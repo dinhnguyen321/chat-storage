@@ -46,10 +46,10 @@ export class MessagesController {
         return this.messageService.remove(conversationId, messageId);
     }
 
-    @Post('conversation/first-message')
-    @ApiOperation({ summary: 'Gửi tin nhắn đầu tiên' })
-    createFirstMessage(@Body() dto: CreateFirstMessageDto) {
-        return this.messageService.createFirstMessage(dto)
-    }
+    // @Post('conversation/first-message')
+    // @ApiOperation({ summary: 'Gửi tin nhắn đầu tiên' })
+    // createFirstMessage(@Body() dto: CreateFirstMessageDto) {
+    //     return this.messageService.createFirstMessage(dto)
+    // }
 
 }

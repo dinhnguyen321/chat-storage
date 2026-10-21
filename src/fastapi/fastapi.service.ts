@@ -1,5 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import axios from "axios";
+import { getRequireEnv } from "../common/utils/env.util.js";
 
 @Injectable()
 export class FastApiService {
@@ -11,8 +12,8 @@ export class FastApiService {
 
     // Cấu hình ID & Secret của FastAPI
     private readonly FASTAPI_URL = process.env.FASTAPI_URL || 'http://localhost:8000';
-    private readonly CLIENT_ID = process.env.FASTAPI_CLIENT_ID || 'rag_sOGBCneFylGQ1SJP12JGfZwG';
-    private readonly CLIENT_SECRET = process.env.FASTAPI_CLIENT_SECRET || 'W8MwP53zQSPNRE50B2R6P8EyIfnR8VUSETCAkvW6nAk-gNy5huxk';
+    private readonly CLIENT_ID = getRequireEnv('FASTAPI_CLIENT_ID');
+    private readonly CLIENT_SECRET = getRequireEnv('FASTAPI_CLIENT_SECRET');
 
     /**
      * Lấy Token hợp lệ (Tự động xin lại nếu Token cũ hết hạn)

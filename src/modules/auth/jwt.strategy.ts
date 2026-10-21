@@ -16,7 +16,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         return null;
       },
       ignoreExpiration: false,
-      secretOrKey: process.env.JWT_SECRET || 'your-shared-jwt-secret', // Phải khớp với SECRET của auth-service
+      secretOrKey: process.env.JWT_SECRET ?? 'Không nhận được JWT_SECRET' // Phải khớp với SECRET của auth-service
     });
   }
 

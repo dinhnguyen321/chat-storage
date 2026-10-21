@@ -7,6 +7,8 @@ import { join } from 'path';
 
 // httpOnly cookie
 import cookieParser from 'cookie-parser';
+// HTTP Security Headers
+import helmet from "helmet"
 
 async function bootstrap() {
 
@@ -14,6 +16,8 @@ async function bootstrap() {
     instrument: ObserveInstrument,
   });
 
+  // Kích hoạt Helmet
+  app.use(helmet);
   app.use(cookieParser()); // Sử dụng cookie-parser để parse cookie từ request
 
   // Serve thư mục uploads công khai

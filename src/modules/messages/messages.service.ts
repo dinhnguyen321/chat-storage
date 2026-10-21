@@ -11,13 +11,12 @@ import axios from 'axios';
 import { FastApiService } from '../../fastapi/fastapi.service.js';
 import { ConversationDocument } from '../entities/conversation_docs.entity.js';
 import { MessageRole } from '../../common/chat.enum.js';
-import { DocumentsService } from '../documents/documents.service.js';
 
 import { DataSource } from 'typeorm';
 import { DocumentEntity } from '../entities/documents.entity.js';
 @Injectable()
 export class MessageService {
-        private readonly logger = new Logger(DocumentsService.name)
+        private readonly logger = new Logger(MessageService.name)
     constructor(
         private readonly dataSource: DataSource,
         @InjectRepository(MessageEntity)
@@ -119,7 +118,7 @@ export class MessageService {
 
         // Gọi đến FastApi và nhận kết quả
         // Nếu fail thì catch sẽ rollback tất cả ở trên
-        const fastApiConversationId = conversation.fastApi_conversation_id || ''
+        const fastApiConversationId = conversation.fastApi_conversation_id ?? ''
         let aiResponse: any;
 
         
@@ -151,7 +150,7 @@ export class MessageService {
         const contentFromApi: string = aiResponse?.answer
                 ? String(aiResponse.answer).trim() 
                 : "Xin lỗi, tôi không thể trả lời câu hỏi này."
-                
+               
         const assistantMessage = queryRunner.manager.create(MessageEntity, {
                 content: contentFromApi,
                 role: MessageRole.ASSISTANT,
@@ -210,14 +209,14 @@ export class MessageService {
                 .filter((id): id is string => Boolean(id) && typeof id === 'string');
             
             if (documentIds.length > 0) {
-                // 2. Query DB lấy tất cả Document trong 1 câu SQL duy nhất (Thay vì loop findOne)
+                // Query DB lấy tất cả Document trong 1 câu SQL duy nhất (Thay vì loop findOne)
                 const documents = await this.documentRepository.find({
                     where: {
                         id: In(documentIds)
                     }
                 })
 
-                // 3. Map các thông tin document/selector cần thiết cho FastAPI
+                // Map các thông tin document/selector cần thiết cho FastAPI
                 // Giả sử mỗi document chứa thông tin selector hoặc cấu trúc FastAPI yêu cầu
                 formattedSelectorChoices = documents.map((doc) => ({
                     document_id: doc.selector
@@ -241,7 +240,7 @@ export class MessageService {
             } else {
                 // Gửi message vào conversation cũ
                 endpoint = `${fastApiUrl}/conversations/${fastApiConversationId}/messages`
-            }
+            }  
 
             this.logger.debug(`Gọi FastAPI: ${endpoint}`);
 
@@ -318,7 +317,6 @@ export class MessageService {
 
     async remove(conversationId: string, messageId: string) {
         //  transaction
-        console.log("conversationId delete", conversationId);
         const queryRunner = this.dataSource.createQueryRunner();
         await queryRunner.connect();
         await queryRunner.startTransaction();
@@ -335,12 +333,9 @@ export class MessageService {
             }
         })
         const conversation_id_fastapi =  message?.conversation.fastApi_conversation_id
-        console.log("conversation_id_fastapi delete", conversation_id_fastapi);
         await queryRunner.manager.remove(message)
         
-        // Commit transaction
-        await queryRunner.commitTransaction();
-        this.logger.log(`Xóa tin nhắn thành công`);
+
         try {
             await axios.delete(`${fastApiUrl}/conversations/${conversation_id_fastapi}`, {
                 headers : {
@@ -349,6 +344,9 @@ export class MessageService {
                 },
                 timeout: 30000,
             })
+            // Commit transaction
+            await queryRunner.commitTransaction();
+            this.logger.log(`Xóa tin nhắn thành công`);
             return {
                 message: 'Xóa thành công'
             }
@@ -374,84 +372,84 @@ export class MessageService {
         return exists;
     }
 
-    async createFirstMessage(dto: CreateFirstMessageDto) {
-        const { content, selector_choices, user_id } = dto
+    // async createFirstMessage(dto: CreateFirstMessageDto) {
+    //     const { content, selector_choices, user_id } = dto
 
-        const conversation = this.conversationRepository.create({
-            title: content.length > 30 ? `${content.substring(0,30)}...` : content,
-            user_id: user_id || 'anonymous'
-            })
+    //     const conversation = this.conversationRepository.create({
+    //         title: content.length > 30 ? `${content.substring(0,30)}...` : content,
+    //         user_id: user_id || 'anonymous'
+    //         })
 
-            const saveConv = await this.conversationRepository.save(conversation)
-            console.log("selector_choices", selector_choices);
+    //         const saveConv = await this.conversationRepository.save(conversation)
+    //         console.log("selector_choices", selector_choices);
             
-            // Liên kết docs vào bảng trung gian ConversationDocument (nếu có)
-            if (dto.selector_choices && dto.selector_choices.length > 0) {
-                const convDocs = dto.selector_choices.map(docId => 
-                    this.conversationDocumentRepository.create({
-                        conversationId: saveConv.id,
-                        documentId: docId
-                    }),
-                );
-                await this.conversationDocumentRepository.save(convDocs);
-            }
+    //         // Liên kết docs vào bảng trung gian ConversationDocument (nếu có)
+    //         if (dto.selector_choices && dto.selector_choices.length > 0) {
+    //             const convDocs = dto.selector_choices.map(docId => 
+    //                 this.conversationDocumentRepository.create({
+    //                     conversationId: saveConv.id,
+    //                     documentId: docId
+    //                 }),
+    //             );
+    //             await this.conversationDocumentRepository.save(convDocs);
+    //         }
 
-            // Lưu tin nhắn của User vào DB
-            const userMsg = await this.messageRepository.save({
-                content: content,
-                role: MessageRole.USER,
-                conversationId: saveConv.id
-            })
+    //         // Lưu tin nhắn của User vào DB
+    //         const userMsg = await this.messageRepository.save({
+    //             content: content,
+    //             role: MessageRole.USER,
+    //             conversationId: saveConv.id
+    //         })
             
-            try {
-            const token = await this.fastApiService.getValidToken()
-            const data = {
-                chat_input: content,
-                answer_mode: "answer",
-                selector_choices: selector_choices
-            }
+    //         try {
+    //         const token = await this.fastApiService.getValidToken()
+    //         const data = {
+    //             chat_input: content,
+    //             answer_mode: "answer",
+    //             selector_choices: selector_choices
+    //         }
 
-            const fastApiUrl = process.env.FASTAPI_URL || 'http://localhost:8000'
-            const aiResponse = await axios.post(`${fastApiUrl}/conversations/messages`, data, {
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`,
-                }})
+    //         const fastApiUrl = process.env.FASTAPI_URL || 'http://localhost:8000'
+    //         const aiResponse = await axios.post(`${fastApiUrl}/conversations/messages`, data, {
+    //             headers: {
+    //                 "Content-Type": "application/json",
+    //                 "Authorization": `Bearer ${token}`,
+    //             }})
 
-            const fastApiConvId = aiResponse.data.conversation_id
-            saveConv.fastApi_conversation_id = fastApiConvId;
-            await this.conversationRepository.save(saveConv)
+    //         const fastApiConvId = aiResponse.data.conversation_id
+    //         saveConv.fastApi_conversation_id = fastApiConvId;
+    //         await this.conversationRepository.save(saveConv)
 
-            const contentFromApi: string = aiResponse?.data?.answer
-                    ? String(aiResponse.data.answer).trim() 
-                    : "Xin lỗi, tôi không thể trả lời câu hỏi này." 
-            if (!content || content.length === 0) {
-                throw new HttpException(
-                'FastAPI trả về response trống',
-                HttpStatus.INTERNAL_SERVER_ERROR,
-            )}    
+    //         const contentFromApi: string = aiResponse?.data?.answer
+    //                 ? String(aiResponse.data.answer).trim() 
+    //                 : "Xin lỗi, tôi không thể trả lời câu hỏi này." 
+    //         if (!content || content.length === 0) {
+    //             throw new HttpException(
+    //             'FastAPI trả về response trống',
+    //             HttpStatus.INTERNAL_SERVER_ERROR,
+    //         )}    
             
-            const assistantMsg = await this.messageRepository.save({
-                content: contentFromApi,
-                role: MessageRole.ASSISTANT,
-                conversationId: saveConv.id,
-            })
+    //         const assistantMsg = await this.messageRepository.save({
+    //             content: contentFromApi,
+    //             role: MessageRole.ASSISTANT,
+    //             conversationId: saveConv.id,
+    //         })
     
-            return {
-                conversation: saveConv,
-                messages: [userMsg, assistantMsg]
-            }
-        } catch (error) {
-            // Xóa message của user vì không có response từ AI
-            await this.messageRepository.delete(userMsg.id);
-            if (axios.isAxiosError(error)) {
-                this.logger.error('FastAPI Error:', error.response?.data);
-                throw new HttpException(
-                    error.response?.data?.detail || 'Lỗi kết nối FastAPI',
-                    error.response?.status || HttpStatus.INTERNAL_SERVER_ERROR,
-                );
-            }
-            throw error;
-        }
-    }
+    //         return {
+    //             conversation: saveConv,
+    //             messages: [userMsg, assistantMsg]
+    //         }
+    //     } catch (error) {
+    //         // Xóa message của user vì không có response từ AI
+    //         await this.messageRepository.delete(userMsg.id);
+    //         if (axios.isAxiosError(error)) {
+    //             this.logger.error('FastAPI Error:', error.response?.data);
+    //             throw new HttpException(
+    //                 error.response?.data?.detail || 'Lỗi kết nối FastAPI',
+    //                 error.response?.status || HttpStatus.INTERNAL_SERVER_ERROR,
+    //             );
+    //         }
+    //         throw error;
+    //     }
+    // }
 }
