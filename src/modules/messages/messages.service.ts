@@ -31,20 +31,20 @@ export class MessageService {
     ) {}
 
     async createMessage(conversationId: string, dto: CreateMessageDto) {
-        console.log("dto", dto);
-        //  transaction config
-        const queryRunner = this.dataSource.createQueryRunner();
-        await queryRunner.connect();
-        await queryRunner.startTransaction();
-
+        this.logger.log(`DTO received: ${JSON.stringify(dto)}`);
         const { user_id, content, selector_choices } = dto
         
         let _targetConversationId = conversationId
         let conversation: ConversationEntity | null
-        let isNewConversation = false;  
+        let isNewConversation = false; 
+
+        const queryRunner = this.dataSource.createQueryRunner();
+        await queryRunner.connect();
+        await queryRunner.startTransaction();
+
         try {
         
-        if(conversationId === 'new') { // Nếu nhận giá trị conversation id là "new" thì tạo mới conv
+            if (conversationId === 'new') { // Nếu nhận giá trị conversation id là "new" thì tạo mới conv
             
             const generatedTitle = dto.content.length > 30
             ? `${dto.content.substring(0,30)}...`
@@ -59,9 +59,8 @@ export class MessageService {
             conversation = await queryRunner.manager.save(newConversation);
             _targetConversationId = conversation.id;
             isNewConversation = true
-            
             this.logger.log(`Sử dụng conversation mới: ${conversation.id}`); 
-        } else { 
+            } else { 
             // lấy ra thông tin conversation nếu có
             conversation = await queryRunner.manager.findOne(ConversationEntity, {
                 where: {
@@ -79,7 +78,6 @@ export class MessageService {
                     `Không tìm thấy cuộc trò chuyện với ID: ${conversationId}`);
             }
 
-            _targetConversationId = conversation.id;
             this.logger.log(`Sử dụng conversation cũ: ${conversation.id}`); 
         }
         
@@ -92,21 +90,22 @@ export class MessageService {
 
         // Liên kết docs vào bảng trung gian ConversationDocument (nếu có)
         if (dto.selector_choices && dto.selector_choices.length > 0) {
-                const convDocs = dto.selector_choices.map((item: SelectorChoiceDto | string) => {
-
-                    const docId = typeof item === 'string' ? item : item?.document_id
-                    if(!docId || typeof docId !== 'string') {
-                        return null
-                    }
-                    return queryRunner.manager.create(ConversationDocument, {
-                        conversationId: _targetConversationId,
-                        documentId: docId,
-                    });
-                });
-                console.log("convDocs", convDocs);
+                const convDocs = dto.selector_choices
+                    .map((item: SelectorChoiceDto | string) => {
+                        const docId = typeof item === 'string' ? item : item?.document_id
+                        if (!docId || typeof docId !== 'string') { return null }
+                        
+                        return queryRunner.manager.create(ConversationDocument, {
+                            conversationId: _targetConversationId,
+                            documentId: docId,
+                        });
+                })
+                .filter((doc): doc is ConversationDocument => doc !== null)
                 
-                await queryRunner.manager.save(convDocs);
-                this.logger.log(`Lưu ${dto.selector_choices.length} documents`);
+                if (convDocs.length > 0) {
+                    await queryRunner.manager.save(convDocs);
+                    this.logger.log(`Lưu ${dto.selector_choices.length} documents vào conversation`);
+                }
             }
 
         const userMessage = queryRunner.manager.create(MessageEntity, {
@@ -116,7 +115,11 @@ export class MessageService {
         })
         const savedMessage = await queryRunner.manager.save(userMessage)
 
-        // Gọi đến FastApi và nhận kết quả
+        // Commit giai đoạn 1: Đảm bảo dữ liệu User gửi đã nằm chắc trong DB trước khi gọi AI
+        await queryRunner.commitTransaction();
+        this.logger.log(`Transaction DB đã được commit thành công cho user message.`);
+
+        // Gọi đến FASTAPI và nhận kết quả
         // Nếu fail thì catch sẽ rollback tất cả ở trên
         const fastApiConversationId = conversation.fastApi_conversation_id ?? ''
         let aiResponse: any;
@@ -129,16 +132,17 @@ export class MessageService {
             content,
             selector_choices,
             )   
-        this.logger.log(`FastAPI trả lời thành công`);
+            this.logger.log(`FastAPI trả lời thành công`);
         } catch (fastApiError) {
-            await queryRunner.rollbackTransaction();
-            this.logger.error(`FastAPI error - Transaction rollback:`, fastApiError);
+            this.logger.error(`FastAPI call failed::`, fastApiError);
             throw fastApiError;
         }   
 
-        
+        // LƯU KẾT QUẢ TỪ AI 
+        // Bắt đầu transaction mới để cập nhật fastApi_conversation_id và lưu tin nhắn AI trả về
+        await queryRunner.startTransaction();
         // cập nhật conversation_id của fast-api
-        if (conversationId === "new") {
+        if (isNewConversation && aiResponse?.conversation_id) {
             conversation.fastApi_conversation_id = aiResponse.conversation_id;
             await queryRunner.manager.save(conversation);
             this.logger.log(
@@ -158,11 +162,11 @@ export class MessageService {
         })
 
         const savedAssistantMessage = await queryRunner.manager.save(assistantMessage)
-        this.logger.log(`Tạo message thành công (Conversation: ${_targetConversationId})`);
         
         // Commit transaction
         await queryRunner.commitTransaction();
-        this.logger.log(`Tin nhắn đã được lưu thành công`)
+        this.logger.log(`Hoàn tất lưu tin nhắn phản hồi của AI.`)
+
         return {
             conversationId: _targetConversationId,
             messages: [savedMessage, savedAssistantMessage]
@@ -174,9 +178,8 @@ export class MessageService {
             if (queryRunner.isTransactionActive) {
                 await queryRunner.rollbackTransaction();
             }
-            this.logger.log(`Transaction rollback - Database về trạng thái ban đầu`);
+            this.logger.error(`Lỗi trong createMessage - Đã rollback transaction`, error);
             if (axios.isAxiosError(error)) {
-                this.logger.error('Create message error:', error.response?.data);
                 throw new HttpException(
                     error.response?.data?.detail || 'Lỗi kết nối FastAPI',
                     error.response?.status || HttpStatus.INTERNAL_SERVER_ERROR,
