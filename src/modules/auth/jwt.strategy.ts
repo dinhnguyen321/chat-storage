@@ -3,10 +3,10 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy } from 'passport-jwt';
 import { Request } from 'express';
-
+import { ConfigService } from '@nestjs/config';
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor() {
+  constructor(configService: ConfigService) {
     super({
       // Lấy token từ Cookie có tên 'access_token'
       jwtFromRequest: (req: Request) => {
@@ -16,7 +16,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         return null;
       },
       ignoreExpiration: false,
-      secretOrKey: process.env.JWT_SECRET ?? 'Không nhận được JWT_SECRET' // Phải khớp với SECRET của auth-service
+      secretOrKey: configService.getOrThrow<string>('JWT_SECRET') // Phải khớp với SECRET của auth-service
     });
   }
 
