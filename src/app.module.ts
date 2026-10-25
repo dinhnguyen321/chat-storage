@@ -3,7 +3,7 @@ import { createObserveModule } from '@nestjs/observe';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { DatabaseModule } from './database/database.module.js';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import databaseConfig from './config/database.config.js';
 
 import { ConversationsModule } from './modules/conversations/conversations.module.js';
@@ -28,10 +28,14 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
       isGlobal: true,
       load: [databaseConfig],
     }),
-    ObserveModule.forRoot({
-      appKey: process.env.OBSERVE_APP_KEY || '',
-      appSecret: process.env.OBSERVE_APP_SECRET || '',
-      serviceId: 'chat-storage',
+    ObserveModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        appKey: configService.getOrThrow<string>('OBSERVE_APP_KEY'),
+        appSecret: configService.getOrThrow<string>('OBSERVE_APP_SECRET'),
+        serviceId: 'chat-storage',
+      })
     }),
 
     DatabaseModule,

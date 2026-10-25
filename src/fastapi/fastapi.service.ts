@@ -1,19 +1,25 @@
 import { Injectable, Logger } from "@nestjs/common";
 import axios from "axios";
-import { getRequireEnv } from "../common/utils/env.util.js";
-
+import { 
+    ConfigService
+ } from '@nestjs/config'
 @Injectable()
 export class FastApiService {
     private readonly logger = new Logger(FastApiService.name);
-
+    private readonly FASTAPI_URL: string;
+    private readonly CLIENT_ID: string;
+    private readonly CLIENT_SECRET: string;
     // Lưu token vào bộ nhớ RAM của NestJS
     private cachedToken: string | null = null;
     private tokenExpiresAt: number = 0; // Timestamp tính bằng giây
 
-    // Cấu hình ID & Secret của FastAPI
-    private readonly FASTAPI_URL = process.env.FASTAPI_URL || 'http://localhost:8000';
-    private readonly CLIENT_ID = getRequireEnv('FASTAPI_CLIENT_ID');
-    private readonly CLIENT_SECRET = getRequireEnv('FASTAPI_CLIENT_SECRET');
+    constructor(private readonly configService: ConfigService) {
+        // Lấy URL với fallback an toàn cho local
+        this.FASTAPI_URL = this.configService.getOrThrow<string>('FASTAPI_URL', 'http://localhost:8000');
+        // Lấy biến bắt buộc, dùng getOrThrow để Fail-Fast đúng thời điểm NestJS khởi tạo Service
+        this.CLIENT_ID = this.configService.getOrThrow<string>('FASTAPI_CLIENT_ID');
+        this.CLIENT_SECRET = this.configService.getOrThrow<string>('FASTAPI_CLIENT_SECRET');
+    }
 
     /**
      * Lấy Token hợp lệ (Tự động xin lại nếu Token cũ hết hạn)
