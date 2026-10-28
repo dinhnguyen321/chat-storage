@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  chat-storage:
+    image: <dinhnguyen279>/chat-storage:latest  # Thay tên user của bạn vào đây
+    container_name: chat-storage-app
+    restart: always
+    ports:
+      - "3005:3001"
+    environment:
+      - NODE_ENV=production
+    env_file:
+      - .env  # Đọc các biến bảo mật từ file .env nằm cùng thư mục
+    networks:
+      - app-network
+
+  # Các service khác như database (MySQL/PostgreSQL) nếu có đặt ở đây...
+
+networks:
+  app-network:
+    driver: bridge
